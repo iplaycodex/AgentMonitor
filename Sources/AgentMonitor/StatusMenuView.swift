@@ -3,17 +3,14 @@ import SwiftUI
 struct StatusMenuView: View {
     @EnvironmentObject var manager: SessionManager
     @Environment(\.openWindow) private var openWindow
-    @State private var showHistory = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
 
-            if manager.sessions.isEmpty && !showHistory {
+            if manager.sessions.isEmpty {
                 emptyState
-            } else if showHistory {
-                historyList
             } else {
                 sessionsList
             }
@@ -136,17 +133,6 @@ struct StatusMenuView: View {
 
     private var footer: some View {
         HStack {
-            Button("清理已完成") {
-                manager.clearCompleted()
-            }
-            .font(.system(size: 11))
-            .disabled(!manager.sessions.contains(where: { $0.status == .completed || $0.status == .failed }))
-
-            Button(showHistory ? "返回" : "历史") {
-                showHistory.toggle()
-            }
-            .font(.system(size: 11))
-
             Button("设置") {
                 openWindow(id: "settings")
             }
@@ -160,87 +146,6 @@ struct StatusMenuView: View {
             .font(.system(size: 11))
         }
         .padding(.top, 8)
-    }
-
-    // MARK: - History List
-
-    private var historyList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if manager.sessionHistory.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 24))
-                        .foregroundColor(.secondary)
-                    Text("暂无历史记录")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(manager.sessionHistory) { session in
-                            historyRow(session)
-                        }
-                    }
-                }
-                .frame(maxHeight: 400)
-            }
-
-            if !manager.sessionHistory.isEmpty {
-                HStack {
-                    Spacer()
-                    Button("清空历史") {
-                        manager.clearHistory()
-                    }
-                    .font(.system(size: 11))
-                    .foregroundColor(.red)
-                }
-                .padding(.top, 4)
-            }
-        }
-    }
-
-    private func historyRow(_ session: Session) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: session.statusIcon)
-                .foregroundColor(colorForStatus(session.status))
-                .font(.system(size: 10))
-                .frame(width: 10, height: 16, alignment: .center)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.title ?? session.project)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-
-                HStack(spacing: 4) {
-                    Text(session.project)
-                        .lineLimit(1)
-
-                    if let branch = session.gitBranch, !branch.isEmpty {
-                        Text("· \(branch)")
-                            .lineLimit(1)
-                    }
-                }
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(session.statusText)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(colorForStatus(session.status))
-
-                Text(timeAgo(session.updatedAt))
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary.opacity(0.6))
-            }
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 6)
     }
 
     private func colorForStatus(_ status: Session.Status) -> Color {

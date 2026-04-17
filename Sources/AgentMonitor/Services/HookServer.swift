@@ -73,13 +73,7 @@ class HookServer: ObservableObject {
                 buf.append(data)
             }
 
-            // Try to parse complete HTTP request
             if let result = self.parseHTTPRequest(buf) {
-                // Debug: log full raw request for codex
-                if result.path.contains("codex") {
-                    let rawStr = String(data: buf, encoding: .utf8) ?? "nil"
-                    self.debugLog("Codex RAW REQUEST (\(buf.count) bytes): \(rawStr.prefix(1000))")
-                }
                 self.processBody(result, connection: conn)
                 return
             }
@@ -163,14 +157,7 @@ class HookServer: ObservableObject {
             json = (try? JSONSerialization.jsonObject(with: request.body) as? [String: Any]) ?? [:]
         }
 
-        // Determine source from URL path
         let source = request.path.contains("codex") ? "codex" : "claude"
-
-        // Debug: log raw JSON keys for Codex events
-        if source == "codex" {
-            let bodyStr = String(data: request.body, encoding: .utf8) ?? "nil"
-            debugLog("Codex raw JSON: \(bodyStr.prefix(500))")
-        }
 
         // Map fields: Codex uses hyphens, Claude Code uses underscores
         let sessionId: String
@@ -182,7 +169,7 @@ class HookServer: ObservableObject {
         let lastMessage: String?
 
         if source == "codex" {
-            sessionId = json["thread-id"] as? String ?? UUID().uuidString
+            sessionId = extractString(from: json, keys: ["thread-id", "thread_id", "conversation-id", "conversation_id", "session-id", "session_id"]) ?? UUID().uuidString
             eventName = json["type"] as? String ?? "unknown"
             cwd = json["cwd"] as? String ?? ""
             terminalTTY = normalizeTTY(json["agentmonitor_tty"] as? String ?? json["agentbar_tty"] as? String ?? json["tty"] as? String)

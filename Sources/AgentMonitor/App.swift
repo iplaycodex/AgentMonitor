@@ -11,7 +11,6 @@ struct AgentMonitorApp: App {
         let settings = AppSettings()
         _settings = StateObject(wrappedValue: settings)
         _sessionManager = StateObject(wrappedValue: SessionManager(settings: settings))
-        requestNotificationPermission()
     }
 
     var body: some Scene {
@@ -65,19 +64,20 @@ struct AgentMonitorApp: App {
         }
         DispatchQueue.main.asyncAfter(deadline: .now(), execute: work)
     }
-
-    private func requestNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, error in
-            if let error = error {
-                print("Notification permission error: \(error)")
-            }
-        }
-    }
 }
 
 // AppDelegate only handles: prevent quit on window close + suppress auto-open settings
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.delegate = self
+        notificationCenter.requestAuthorization(options: [.alert, .sound]) { granted, error in
+            if let error = error {
+                print("Notification permission error: \(error)")
+            }
+            print("[AgentMonitor] Notification permission granted: \(granted)")
+        }
+
         // Auto-install hooks on first launch
         let installer = HookInstaller()
         if !installer.isInstalled {
@@ -96,5 +96,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
     }
 }

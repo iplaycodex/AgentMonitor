@@ -2,7 +2,7 @@ import Foundation
 
 final class HookInstaller {
     private static let installedKey = "hooksInstalledVersion"
-    private static let currentVersion = 2
+    private static let currentVersion = 3
 
     private let fileManager = FileManager.default
     private let defaults = UserDefaults.standard
@@ -52,11 +52,29 @@ final class HookInstaller {
         }
 
         var hooks = (settings["hooks"] as? [String: Any]) ?? [:]
-        let hookEntry: [[String: Any]] = [
-            ["matcher": "", "hooks": [["type": "command", "command": scriptPath]]]
+        let hookEntry: [String: Any] = [
+            "matcher": "",
+            "hooks": [["type": "command", "command": scriptPath]]
         ]
-        for event in ["Stop", "Notification", "StopFailure", "PreToolUse", "UserPromptSubmit"] {
-            hooks[event] = hookEntry
+        for event in [
+            "Stop",
+            "Notification",
+            "StopFailure",
+            "SessionStart",
+            "PreToolUse",
+            "PostToolUse",
+            "PostToolUseFailure",
+            "UserPromptSubmit",
+            "PermissionRequest",
+            "PermissionDenied",
+            "Elicitation",
+            "SessionEnd",
+            "CwdChanged"
+        ] {
+            var entries = hooks[event] as? [[String: Any]] ?? []
+            entries.removeAll { entryContainsCommand($0, command: scriptPath) }
+            entries.append(hookEntry)
+            hooks[event] = entries
         }
         settings["hooks"] = hooks
 
@@ -69,6 +87,13 @@ final class HookInstaller {
             return "无法写入 settings.json: \(error.localizedDescription)"
         }
         return nil
+    }
+
+    private func entryContainsCommand(_ entry: [String: Any], command: String) -> Bool {
+        guard let hookCommands = entry["hooks"] as? [[String: Any]] else {
+            return false
+        }
+        return hookCommands.contains { $0["command"] as? String == command }
     }
 
     // MARK: - Codex
@@ -121,7 +146,7 @@ final class HookInstaller {
             tty_value="$(tty 2>/dev/null || true)"
         fi
 
-        AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/claude" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
+        AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" AGENTMONITOR_CWD="$PWD" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/claude" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
         import json
         import os
         import sys
@@ -134,6 +159,10 @@ final class HookInstaller {
         tty = (os.environ.get("AGENTMONITOR_TTY") or "").strip()
         if tty and tty != "not a tty":
             data["agentmonitor_tty"] = tty
+
+        cwd = (os.environ.get("AGENTMONITOR_CWD") or "").strip()
+        if cwd and not data.get("cwd"):
+            data["cwd"] = cwd
 
         json.dump(data, sys.stdout, ensure_ascii=False)
         PYEOF
@@ -155,7 +184,7 @@ final class HookInstaller {
             tty_value="$(tty 2>/dev/null || true)"
         fi
 
-        AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/codex" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
+        AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" AGENTMONITOR_CWD="$PWD" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/codex" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
         import json
         import os
         import sys
@@ -168,6 +197,10 @@ final class HookInstaller {
         tty = (os.environ.get("AGENTMONITOR_TTY") or "").strip()
         if tty and tty != "not a tty":
             data["agentmonitor_tty"] = tty
+
+        cwd = (os.environ.get("AGENTMONITOR_CWD") or "").strip()
+        if cwd and not data.get("cwd"):
+            data["cwd"] = cwd
 
         json.dump(data, sys.stdout, ensure_ascii=False)
         PYEOF

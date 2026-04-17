@@ -6,7 +6,6 @@ import UserNotifications
 class SessionManager: ObservableObject {
     @Published var sessions: [Session] = []
     @Published var permissionAlertMessage: String?
-    @Published var sessionHistory: [Session] = []
     @Published var pulseToggle = false
 
     private let server = HookServer()
@@ -15,11 +14,9 @@ class SessionManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var staleCheckTimer: Timer?
     private var pulseTimer: Timer?
-    private static let maxHistoryCount = 50
 
     init(settings: AppSettings) {
         self.settings = settings
-        sessionHistory = Self.loadHistory()
         server.onEvent = { [weak self] event in
             DispatchQueue.main.async {
                 self?.handleEvent(event)
@@ -66,12 +63,14 @@ class SessionManager: ObservableObject {
     func handleEvent(_ event: HookServer.HookEvent) {
         let project = extractProject(from: event.cwd)
         let gitBranch = extractGitBranch(from: event.cwd)
+        let newStatus = mapStatus(event)
+        let previousStatus = sessions.first(where: { $0.id == event.sessionId })?.status
 
         debugLog("Received event: source=\(event.source), event=\(event.eventName), project=\(project), session=\(event.sessionId)")
 
         if let index = sessions.firstIndex(where: { $0.id == event.sessionId }) {
             // Update existing session — replace entire element to trigger @Published
-            sessions[index].status = mapStatus(event)
+            sessions[index].status = newStatus
             sessions[index].cwd = event.cwd
             sessions[index].project = project
             sessions[index].gitBranch = gitBranch
@@ -96,7 +95,7 @@ class SessionManager: ObservableObject {
                 cwd: event.cwd,
                 gitBranch: gitBranch,
                 terminalTTY: event.terminalTTY,
-                status: mapStatus(event),
+                status: newStatus,
                 lastMessage: event.lastMessage.map { String($0.prefix(200)) },
                 updatedAt: Date(),
                 createdAt: Date()
@@ -112,7 +111,7 @@ class SessionManager: ObservableObject {
             debugLog("  - [\(s.tool.rawValue)] \(s.title ?? s.project): \(s.statusText)")
         }
 
-        sendNotificationIfNeeded(event, project: project)
+        sendNotificationIfNeeded(event, project: project, previousStatus: previousStatus, newStatus: newStatus)
     }
 
     // MARK: - Status Mapping
@@ -120,44 +119,93 @@ class SessionManager: ObservableObject {
     private func mapStatus(_ event: HookServer.HookEvent) -> Session.Status {
         switch event.eventName {
         case "Stop":
-            // If last message ends with a question, Claude is asking for input
-            if let msg = event.lastMessage,
-               msg.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("?") {
-                return .waiting
-            }
             return .completed
 
-        case "Notification":
+        case "Notification", "PermissionRequest", "PermissionDenied", "Elicitation":
             return .waiting
 
         case "StopFailure":
             return .failed
 
-        case "PreToolUse", "UserPromptSubmit":
+        case "SessionEnd":
+            return .completed
+
+        case "SessionStart", "PreToolUse", "PostToolUse", "PostToolUseFailure", "UserPromptSubmit", "CwdChanged":
             // Claude resumed working after user action
             return .running
 
-        case "notify":
-            // Codex notification
+        case "agent-turn-start":
+            return .running
+
+        case "agent-turn-user-prompt", "approval-requested", "exec-approval", "apply-patch-approval":
             return .waiting
 
         case "agent-turn-complete":
-            // Codex turn finished — agent is now waiting for user input
-            return .waiting
+            return .completed
+
+        case "notify":
+            // Codex notify is primarily emitted after a turn completes.
+            return mapCodexNotifyStatus(event)
+
+        case "agent-turn-stop":
+            return .failed
 
         default:
-            // Unknown Codex events or other sources → treat as running
+            // Unknown Codex notify payloads are sent only for user-visible notifications.
             if event.source == "codex" {
-                return .running
+                return .waiting
             }
             return .completed
         }
     }
 
+    private func mapCodexNotifyStatus(_ event: HookServer.HookEvent) -> Session.Status {
+        let text = [
+            event.rawJson["subtype"],
+            event.rawJson["notification-type"],
+            event.rawJson["notification_type"],
+            event.rawJson["kind"],
+            event.rawJson["title"],
+            event.rawJson["message"],
+            event.lastMessage
+        ]
+            .compactMap { $0 as? String }
+            .joined(separator: " ")
+            .lowercased()
+
+        if text.contains("approval")
+            || text.contains("permission")
+            || text.contains("confirm")
+            || text.contains("prompt")
+            || text.contains("waiting")
+            || text.contains("input")
+        {
+            return .waiting
+        }
+
+        if text.contains("error")
+            || text.contains("fail")
+            || text.contains("interrupted")
+            || text.contains("cancel")
+        {
+            return .failed
+        }
+
+        return .completed
+    }
+
     // MARK: - System Notification
 
-    private func sendNotificationIfNeeded(_ event: HookServer.HookEvent, project: String) {
-        let status = mapStatus(event)
+    private func sendNotificationIfNeeded(
+        _ event: HookServer.HookEvent,
+        project: String,
+        previousStatus: Session.Status?,
+        newStatus status: Session.Status
+    ) {
+        if previousStatus == status {
+            return
+        }
+
         let body: String
         let sound: UNNotificationSound
 
@@ -165,14 +213,14 @@ class SessionManager: ObservableObject {
         case .waiting:
             guard settings.notifyWaiting else { return }
             body = "\(project) - 需要你确认操作"
-            sound = .defaultCritical
+            sound = .default
         case .completed:
             guard settings.notifyCompleted else { return }
             body = "\(project) - 任务已完成"
             sound = UNNotificationSound(named: UNNotificationSoundName("Glass.aiff"))
         case .failed:
             body = "\(project) - 任务出错"
-            sound = .defaultCritical
+            sound = .default
         case .running:
             return // No notification for running state
         }
@@ -183,7 +231,7 @@ class SessionManager: ObservableObject {
         content.sound = sound
 
         let request = UNNotificationRequest(
-            identifier: event.sessionId,
+            identifier: "\(event.sessionId)-\(event.eventName)-\(Date().timeIntervalSince1970)",
             content: content,
             trigger: nil
         )
@@ -196,24 +244,6 @@ class SessionManager: ObservableObject {
     }
 
     // MARK: - Helpers
-
-    func clearCompleted() {
-        let completed = sessions.filter { $0.status == .completed || $0.status == .failed }
-        sessions.removeAll { $0.status == .completed || $0.status == .failed }
-
-        if !completed.isEmpty {
-            sessionHistory.insert(contentsOf: completed, at: 0)
-            if sessionHistory.count > Self.maxHistoryCount {
-                sessionHistory = Array(sessionHistory.prefix(Self.maxHistoryCount))
-            }
-            saveHistory()
-        }
-    }
-
-    func clearHistory() {
-        sessionHistory.removeAll()
-        saveHistory()
-    }
 
     // MARK: - Stale Session Detection
 
@@ -305,20 +335,6 @@ class SessionManager: ObservableObject {
         } else {
             try? data.write(to: URL(fileURLWithPath: logPath))
         }
-    }
-
-    // MARK: - History Persistence
-
-    private static let historyKey = "sessionHistory"
-
-    private static func loadHistory() -> [Session] {
-        guard let data = UserDefaults.standard.data(forKey: historyKey) else { return [] }
-        return (try? JSONDecoder().decode([Session].self, from: data)) ?? []
-    }
-
-    private func saveHistory() {
-        guard let data = try? JSONEncoder().encode(sessionHistory) else { return }
-        UserDefaults.standard.set(data, forKey: Self.historyKey)
     }
 
     private func normalizedPort(_ port: Int) -> UInt16 {

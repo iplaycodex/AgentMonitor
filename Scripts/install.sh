@@ -45,7 +45,7 @@ else
     tty_value="$(tty 2>/dev/null || true)"
 fi
 
-AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/claude" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
+AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" AGENTMONITOR_CWD="$PWD" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/claude" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
 import json
 import os
 import sys
@@ -58,6 +58,10 @@ except json.JSONDecodeError:
 tty = (os.environ.get("AGENTMONITOR_TTY") or "").strip()
 if tty and tty != "not a tty":
     data["agentmonitor_tty"] = tty
+
+cwd = (os.environ.get("AGENTMONITOR_CWD") or "").strip()
+if cwd and not data.get("cwd"):
+    data["cwd"] = cwd
 
 json.dump(data, sys.stdout, ensure_ascii=False)
 PYEOF
@@ -79,14 +83,35 @@ with open(path, 'r') as f:
 if "hooks" not in settings:
     settings["hooks"] = {}
 
-for event in ["Stop", "Notification", "StopFailure", "PreToolUse", "UserPromptSubmit"]:
-    settings["hooks"][event] = [{
+for event in [
+    "Stop",
+    "Notification",
+    "StopFailure",
+    "SessionStart",
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "UserPromptSubmit",
+    "PermissionRequest",
+    "PermissionDenied",
+    "Elicitation",
+    "SessionEnd",
+    "CwdChanged",
+]:
+    hook_entry = {
         "matcher": "",
         "hooks": [{
             "type": "command",
             "command": hook_cmd
         }]
-    }]
+    }
+    entries = settings["hooks"].get(event, [])
+    entries = [
+        entry for entry in entries
+        if not any(hook.get("command") == hook_cmd for hook in entry.get("hooks", []))
+    ]
+    entries.append(hook_entry)
+    settings["hooks"][event] = entries
 
 with open(path, 'w') as f:
     json.dump(settings, f, indent=2, ensure_ascii=False)
@@ -132,7 +157,7 @@ else
     tty_value="$(tty 2>/dev/null || true)"
 fi
 
-AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/codex" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
+AGENTMONITOR_PAYLOAD="$payload" AGENTMONITOR_TTY="$tty_value" AGENTMONITOR_CWD="$PWD" python3 - <<'PYEOF' | curl --noproxy '*' -s -X POST "http://localhost:${port}/hooks/codex" -H 'Content-Type: application/json' -d @- > /dev/null 2>&1
 import json
 import os
 import sys
@@ -145,6 +170,10 @@ except json.JSONDecodeError:
 tty = (os.environ.get("AGENTMONITOR_TTY") or "").strip()
 if tty and tty != "not a tty":
     data["agentmonitor_tty"] = tty
+
+cwd = (os.environ.get("AGENTMONITOR_CWD") or "").strip()
+if cwd and not data.get("cwd"):
+    data["cwd"] = cwd
 
 json.dump(data, sys.stdout, ensure_ascii=False)
 PYEOF

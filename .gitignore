@@ -5,6 +5,7 @@
 
 # Generated app artifacts
 AgentMonitor.app/
+*.dmg
 
 # Xcode
 xcuserdata/
