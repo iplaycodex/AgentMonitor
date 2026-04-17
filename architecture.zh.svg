@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">AgentMonitor 项目架构图</title>
+  <desc id="desc">展示 Claude Code 和 Codex CLI 的 Hook 事件如何经由包装脚本、本地 HookServer、SessionManager，最终驱动菜单栏界面、系统通知和终端跳转。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f9fc; }
+      .lane { fill: #ffffff; stroke: #d8e0ea; stroke-width: 1.4; }
+      .lane-title { font: 700 20px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #263445; }
+      .box-title { font: 700 18px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #1d2939; }
+      .box-text { font: 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #536579; }
+      .edge { stroke: #58708a; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .edge-soft { stroke: #8ba1b7; stroke-width: 1.8; fill: none; marker-end: url(#arrow-soft); stroke-dasharray: 6 6; }
+      .label { font: 13px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #3c4d5f; }
+      .small { font: 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #667789; }
+      .code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #3b4a59; }
+      .shadow { filter: drop-shadow(0 8px 18px rgba(31, 45, 61, 0.10)); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#58708a"/>
+    </marker>
+    <marker id="arrow-soft" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#8ba1b7"/>
+    </marker>
+    <linearGradient id="blue" x1="0" x2="1">
+      <stop offset="0" stop-color="#e7f0ff"/>
+      <stop offset="1" stop-color="#d7e7ff"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" x2="1">
+      <stop offset="0" stop-color="#e7f7ef"/>
+      <stop offset="1" stop-color="#d9f0e4"/>
+    </linearGradient>
+    <linearGradient id="yellow" x1="0" x2="1">
+      <stop offset="0" stop-color="#fff7df"/>
+      <stop offset="1" stop-color="#ffefc2"/>
+    </linearGradient>
+    <linearGradient id="rose" x1="0" x2="1">
+      <stop offset="0" stop-color="#fff0f1"/>
+      <stop offset="1" stop-color="#ffe1e5"/>
+    </linearGradient>
+  </defs>
+
+  <rect class="bg" width="1200" height="760"/>
+  <text x="52" y="55" class="lane-title" style="font-size:28px">AgentMonitor 项目架构图</text>
+  <text x="52" y="82" class="box-text">本地菜单栏应用接收 Claude Code / Codex CLI Hook 事件，统一维护会话状态并提供通知与终端跳转。</text>
+
+  <rect x="45" y="120" width="250" height="520" rx="18" class="lane"/>
+  <text x="70" y="155" class="lane-title">外部事件源</text>
+
+  <rect x="335" y="120" width="250" height="520" rx="18" class="lane"/>
+  <text x="360" y="155" class="lane-title">Hook 接入层</text>
+
+  <rect x="625" y="120" width="250" height="520" rx="18" class="lane"/>
+  <text x="650" y="155" class="lane-title">核心状态层</text>
+
+  <rect x="915" y="120" width="240" height="520" rx="18" class="lane"/>
+  <text x="940" y="155" class="lane-title">界面与系统能力</text>
+
+  <g class="shadow">
+    <rect x="75" y="195" width="190" height="88" rx="14" fill="url(#blue)" stroke="#8bb5ee"/>
+    <text x="98" y="230" class="box-title">Claude Code</text>
+    <text x="98" y="256" class="box-text">Stop / Notification</text>
+    <text x="98" y="276" class="box-text">PreToolUse 等事件</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="75" y="355" width="190" height="88" rx="14" fill="url(#blue)" stroke="#8bb5ee"/>
+    <text x="98" y="390" class="box-title">Codex CLI</text>
+    <text x="98" y="416" class="box-text">notify Hook 参数</text>
+    <text x="98" y="436" class="code">agent-turn-complete</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="365" y="185" width="190" height="98" rx="14" fill="url(#yellow)" stroke="#e4bd57"/>
+    <text x="388" y="220" class="box-title">HookInstaller</text>
+    <text x="388" y="247" class="box-text">写入脚本和配置</text>
+    <text x="388" y="268" class="code">~/.agentmonitor</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="365" y="345" width="190" height="118" rx="14" fill="url(#yellow)" stroke="#e4bd57"/>
+    <text x="388" y="380" class="box-title">包装脚本</text>
+    <text x="388" y="407" class="box-text">读取端口、补充 TTY</text>
+    <text x="388" y="428" class="box-text">POST 到本地服务</text>
+    <text x="388" y="449" class="code">/hooks/claude | codex</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="655" y="178" width="190" height="112" rx="14" fill="url(#green)" stroke="#88c79a"/>
+    <text x="678" y="213" class="box-title">HookServer</text>
+    <text x="678" y="240" class="box-text">NWListener 本地监听</text>
+    <text x="678" y="261" class="box-text">解析 HTTP 与 JSON</text>
+    <text x="678" y="282" class="code">localhost:17321</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="655" y="352" width="190" height="118" rx="14" fill="url(#green)" stroke="#88c79a"/>
+    <text x="678" y="387" class="box-title">SessionManager</text>
+    <text x="678" y="414" class="box-text">创建 / 更新会话</text>
+    <text x="678" y="435" class="box-text">映射状态、读 Git 分支</text>
+    <text x="678" y="456" class="box-text">清理失效 TTY</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="657" y="522" width="186" height="76" rx="14" fill="url(#rose)" stroke="#e7a1aa"/>
+    <text x="680" y="554" class="box-title">Session</text>
+    <text x="680" y="579" class="box-text">状态、项目、TTY、消息</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="945" y="184" width="180" height="108" rx="14" fill="#eef4ff" stroke="#96b7e7"/>
+    <text x="968" y="219" class="box-title">菜单栏界面</text>
+    <text x="968" y="246" class="box-text">MenuBarExtra</text>
+    <text x="968" y="267" class="box-text">StatusMenuView</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="945" y="352" width="180" height="92" rx="14" fill="#f1f8f3" stroke="#8ec79e"/>
+    <text x="968" y="387" class="box-title">系统通知</text>
+    <text x="968" y="414" class="box-text">等待确认 / 完成 / 出错</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="945" y="504" width="180" height="104" rx="14" fill="#fff3dc" stroke="#e4bd57"/>
+    <text x="968" y="539" class="box-title">终端跳转</text>
+    <text x="968" y="566" class="box-text">AppleScript 聚焦</text>
+    <text x="968" y="587" class="box-text">Terminal / iTerm2 / Ghostty</text>
+  </g>
+
+  <path d="M265 239 C310 239 315 230 363 230" class="edge"/>
+  <text x="290" y="222" class="label">首次启动安装</text>
+  <path d="M265 399 C310 399 315 402 363 402" class="edge"/>
+  <text x="287" y="384" class="label">Hook 事件</text>
+  <path d="M460 283 L460 344" class="edge-soft"/>
+  <text x="474" y="319" class="small">生成脚本</text>
+  <path d="M555 404 C598 404 607 234 653 234" class="edge"/>
+  <text x="565" y="315" class="label">HTTP POST</text>
+  <path d="M750 290 L750 351" class="edge"/>
+  <text x="764" y="326" class="label">HookEvent</text>
+  <path d="M750 470 L750 521" class="edge"/>
+  <text x="764" y="501" class="small">维护数据</text>
+  <path d="M845 403 C885 403 900 238 943 238" class="edge"/>
+  <text x="858" y="315" class="label">发布 sessions</text>
+  <path d="M845 414 C888 414 902 398 943 398" class="edge"/>
+  <text x="862" y="393" class="label">按需通知</text>
+  <path d="M845 445 C895 445 898 556 943 556" class="edge"/>
+  <text x="858" y="527" class="label">打开会话</text>
+</svg>

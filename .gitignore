@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+.swiftpm/
+AgentMonitor.app/
+
+# Local tool state
+.claude/

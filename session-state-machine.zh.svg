@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Session 状态机</title>
+  <desc id="desc">展示 AgentMonitor 中会话从无记录到运行中、等待确认、已完成、出错，以及清理和历史归档的状态转换。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #223044; }
+      .sub { font: 15px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #65758a; }
+      .state-title { font: 700 22px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #172033; }
+      .state-code { font: 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #566579; }
+      .note { font: 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #4d5f73; }
+      .edge { stroke: #526a83; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .edge-wait { stroke: #cf8a18; stroke-width: 2.4; fill: none; marker-end: url(#arrow-wait); }
+      .edge-fail { stroke: #c8535d; stroke-width: 2.4; fill: none; marker-end: url(#arrow-fail); }
+      .edge-soft { stroke: #8ea0b2; stroke-width: 1.9; fill: none; marker-end: url(#arrow-soft); stroke-dasharray: 7 7; }
+      .label { font: 13px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #33465b; }
+      .shadow { filter: drop-shadow(0 10px 20px rgba(31, 45, 61, 0.10)); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#526a83"/>
+    </marker>
+    <marker id="arrow-wait" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#cf8a18"/>
+    </marker>
+    <marker id="arrow-fail" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#c8535d"/>
+    </marker>
+    <marker id="arrow-soft" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#8ea0b2"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1200" height="760"/>
+  <text x="55" y="58" class="title">Session 状态机</text>
+  <text x="55" y="88" class="sub">状态由 SessionManager.mapStatus 根据 HookEvent.eventName 和 lastMessage 推导。</text>
+
+  <g class="shadow">
+    <circle cx="145" cy="360" r="72" fill="#ffffff" stroke="#c8d3df" stroke-width="2"/>
+    <text x="105" y="350" class="state-title">无会话</text>
+    <text x="82" y="378" class="state-code">sessions 无记录</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="360" y="150" width="190" height="108" rx="18" fill="#e7f0ff" stroke="#7aa7e8" stroke-width="2"/>
+    <text x="420" y="193" class="state-title">运行中</text>
+    <text x="423" y="224" class="state-code">running</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="360" y="460" width="190" height="108" rx="18" fill="#fff0d6" stroke="#d79a2b" stroke-width="2"/>
+    <text x="400" y="503" class="state-title">等待确认</text>
+    <text x="420" y="534" class="state-code">waiting</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="730" y="150" width="190" height="108" rx="18" fill="#e4f6ea" stroke="#78bf8a" stroke-width="2"/>
+    <text x="790" y="193" class="state-title">已完成</text>
+    <text x="787" y="224" class="state-code">completed</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="730" y="460" width="190" height="108" rx="18" fill="#ffe8eb" stroke="#d66a73" stroke-width="2"/>
+    <text x="804" y="503" class="state-title">出错</text>
+    <text x="804" y="534" class="state-code">failed</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="985" y="303" width="150" height="114" rx="18" fill="#fff7df" stroke="#e0bd55" stroke-width="2"/>
+    <text x="1016" y="345" class="state-title">历史</text>
+    <text x="1010" y="375" class="state-code">sessionHistory</text>
+    <text x="1010" y="399" class="note">最多 50 条</text>
+  </g>
+
+  <g>
+    <path d="M217 335 C260 300 300 236 359 213" class="edge"/>
+    <text x="245" y="272" class="label">UserPromptSubmit / PreToolUse</text>
+    <path d="M217 385 C270 430 300 494 359 513" class="edge-wait"/>
+    <text x="238" y="465" class="label">Notification 或 Stop + 问句</text>
+    <path d="M203 310 C330 70 615 70 770 149" class="edge"/>
+    <text x="382" y="112" class="label">Stop 非问句 / notify / agent-turn-complete / 默认</text>
+    <path d="M205 415 C350 655 615 655 770 568" class="edge-fail"/>
+    <text x="450" y="675" class="label">StopFailure</text>
+  </g>
+
+  <g>
+    <path d="M455 258 C455 320 455 390 455 459" class="edge-wait"/>
+    <text x="470" y="356" class="label">Notification 或 Stop + 问句</text>
+    <path d="M500 460 C535 388 535 330 500 258" class="edge"/>
+    <text x="536" y="356" class="label">用户提交后继续运行</text>
+    <path d="M550 204 L729 204" class="edge"/>
+    <text x="588" y="188" class="label">完成类事件</text>
+    <path d="M550 514 L729 514" class="edge-fail"/>
+    <text x="602" y="499" class="label">StopFailure</text>
+    <path d="M550 555 C610 598 690 590 742 565" class="edge-fail"/>
+    <text x="590" y="628" class="label">等待时失败</text>
+    <path d="M550 485 C620 360 662 260 730 224" class="edge"/>
+    <text x="575" y="340" class="label">等待后完成</text>
+  </g>
+
+  <g>
+    <path d="M920 204 C970 225 1007 265 1038 302" class="edge-soft"/>
+    <text x="952" y="250" class="label">clearCompleted()</text>
+    <path d="M920 514 C970 494 1008 456 1038 418" class="edge-soft"/>
+    <text x="952" y="491" class="label">clearCompleted()</text>
+  </g>
+
+  <g class="shadow">
+    <rect x="70" y="610" width="330" height="74" rx="16" fill="#ffffff" stroke="#c8d3df"/>
+    <text x="94" y="642" class="state-title" style="font-size:18px">失效会话清理</text>
+    <text x="94" y="670" class="note">running / waiting 且 TTY 文件不存在时，每 5 秒从 sessions 移除。</text>
+  </g>
+  <path d="M235 610 C240 548 300 535 359 524" class="edge-soft"/>
+  <path d="M210 610 C220 470 270 250 359 220" class="edge-soft"/>
+</svg>
